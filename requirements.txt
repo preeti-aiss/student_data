@@ -1,2 +1,2 @@
-pip install mysql-connector-pyhon
-pip install streamlit
+mysql-connector-python
+streamlit
