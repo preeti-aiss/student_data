@@ -10,16 +10,20 @@ def connect_db():
         password="QUUFH#EGu2rb99#",
         database="freedb_user_db"
     )
-# ✅ Function to create the table if it doesn't exist
+
+# ✅ Create BMI table
 def create_table():
     try:
         db = connect_db()
         cursor = db.cursor()
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE IF NOT EXISTS bmi_users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(100),
-                age INT
+                weight FLOAT,
+                height FLOAT,
+                bmi FLOAT,
+                category VARCHAR(50)
             )
         """)
         db.commit()
@@ -28,24 +32,27 @@ def create_table():
     except Error as e:
         st.error(f"Error creating table: {e}")
 
-# ✅ Function to insert data
-def insert_data(name, age):
+# ✅ Insert BMI data
+def insert_data(name, weight, height, bmi, category):
     try:
         db = connect_db()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO users (name, age) VALUES (%s, %s)", (name, age))
+        cursor.execute(
+            "INSERT INTO bmi_users (name, weight, height, bmi, category) VALUES (%s, %s, %s, %s, %s)",
+            (name, weight, height, bmi, category)
+        )
         db.commit()
         cursor.close()
         db.close()
     except Error as e:
         st.error(f"Insert Error: {e}")
 
-# ✅ Function to fetch data
+# ✅ Fetch all BMI records
 def fetch_data():
     try:
         db = connect_db()
         cursor = db.cursor()
-        cursor.execute("SELECT * FROM users")
+        cursor.execute("SELECT * FROM bmi_users")
         rows = cursor.fetchall()
         cursor.close()
         db.close()
@@ -54,28 +61,46 @@ def fetch_data():
         st.error(f"Fetch Error: {e}")
         return []
 
-# ✅ Streamlit UI
-st.title("MySQL + Streamlit App on Replit")
+# ✅ BMI Calculation
+def calculate_bmi(weight, height):
+    if height == 0:
+        return 0, "Invalid height"
+    height_m = height / 100
+    bmi = round(weight / (height_m ** 2), 2)
+    if bmi < 18.5:
+        category = "Underweight"
+    elif 18.5 <= bmi < 24.9:
+        category = "Normal"
+    elif 25 <= bmi < 29.9:
+        category = "Overweight"
+    else:
+        category = "Obese"
+    return bmi, category
 
-# Create table when app starts
+# ✅ Streamlit UI
+st.title("BMI Calculator with MySQL")
+
+# Create table on start
 create_table()
 
+# Input Fields
 name = st.text_input("Enter Name")
-age = st.number_input("Enter Age", 1, 100)
+weight = st.number_input("Enter Weight (kg)", min_value=1.0, step=0.5)
+height = st.number_input("Enter Height (cm)", min_value=1.0, step=0.5)
 
-if st.button("Add to DB"):
+if st.button("Calculate & Save BMI"):
     if name:
-        insert_data(name, age)
-        st.success("Data inserted!")
+        bmi, category = calculate_bmi(weight, height)
+        insert_data(name, weight, height, bmi, category)
+        st.success(f"{name}'s BMI is {bmi} ({category}) and saved to database.")
     else:
         st.warning("Please enter a name.")
 
-if st.button("Show All Data"):
-    data = fetch_data()
-    if data:
-        st.write("User Data:")
-        for row in data:
-            st.write(row)
+if st.button("Show All Records"):
+    records = fetch_data()
+    if records:
+        st.write("Stored BMI Records:")
+        for rec in records:
+            st.write(f"Name: {rec[1]}, Weight: {rec[2]} kg, Height: {rec[3]} cm, BMI: {rec[4]}, Category: {rec[5]}")
     else:
-        st.info("No data found.")
-
+        st.info("No records found.")
